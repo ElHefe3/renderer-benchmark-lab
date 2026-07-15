@@ -59,6 +59,8 @@ def _iou(left, right):
 
 def compare(reference: dict, candidate: dict, diff_dir: Path, required_text: tuple[str, ...] = ()) -> dict:
     ssims, pixels, boxes, ink = [], [], [], []
+    overlay_dir = diff_dir.parent / diff_dir.name.replace("diff-", "overlay-", 1)
+    overlay_dir.mkdir(exist_ok=True)
     for index in range(max(len(reference["pages"]), len(candidate["pages"]))):
         left, right = _pad(reference["pages"][index] if index < len(reference["pages"]) else None,
                            candidate["pages"][index] if index < len(candidate["pages"]) else None)
@@ -66,7 +68,11 @@ def compare(reference: dict, candidate: dict, diff_dir: Path, required_text: tup
         pixels.append(float(np.mean(np.abs(left.astype(np.int16) - right.astype(np.int16))) / 255))
         boxes.append(_iou(_bbox(left), _bbox(right)))
         ink.append(float(np.mean(np.min(right, axis=2) < 245) - np.mean(np.min(left, axis=2) < 245)))
-        Image.fromarray(np.max(np.abs(left.astype(np.int16)-right.astype(np.int16)), axis=2).astype(np.uint8)).save(diff_dir / f"page-{index+1}.png")
+        delta = np.max(np.abs(left.astype(np.int16) - right.astype(np.int16)), axis=2).astype(np.uint8)
+        heatmap = np.stack((delta, np.zeros_like(delta), 255 - delta), axis=2)
+        Image.fromarray(heatmap).save(diff_dir / f"page-{index+1}.png")
+        overlay = ((left.astype(np.uint16) + right.astype(np.uint16)) // 2).astype(np.uint8)
+        Image.fromarray(overlay).save(overlay_dir / f"page-{index+1}.png")
     left_text, right_text = " ".join(reference["texts"]), " ".join(candidate["texts"])
     left_words, right_words = Counter(left_text.lower().split()), Counter(right_text.lower().split())
     common = sum((left_words & right_words).values())
@@ -94,4 +100,3 @@ def complexity(html: Path) -> dict:
     source = html.read_text(encoding="utf-8")
     return {"html_bytes": len(source.encode()), "element_count": len(re.findall(r"<[A-Za-z][^>]*>", source)),
             "css_rule_count": source.count("{")}
-

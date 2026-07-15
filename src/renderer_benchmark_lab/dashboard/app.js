@@ -64,8 +64,9 @@ function render() {
   $('stats').innerHTML = `<div class="stat"><span>Quality</span><strong>${aggregate.quality_score.toFixed(1)}</strong><small>${pct(aggregate.overall_error_percent)} error</small></div><div class="stat"><span>Candidate mean</span><strong>${ms(candidateMean)}</strong><small>Reference ${ms(aggregate.reference_median_ms)}</small></div><div class="stat"><span>Critical failures</span><strong>${aggregate.critical_failure_count}</strong><small>${aggregate.case_count} cases</small></div>`;
   const max = Math.max(aggregate.reference_median_ms, candidateMean);
   $('speed').innerHTML = bar(run.reference, aggregate.reference_median_ms, max, 'reference') + bar(candidate, candidateMean, max, 'candidate');
-  const refScope = (run.renderers[run.reference] || {}).timing_scope || 'unknown';
-  const candScope = (run.renderers[candidate] || {}).timing_scope || 'unknown';
+  const firstRenderers = (run.cases[0] || {}).renderers || {};
+  const refScope = (firstRenderers[run.reference] || {}).timing_scope || 'unknown';
+  const candScope = (firstRenderers[candidate] || {}).timing_scope || 'unknown';
   $('timing').innerHTML = `<span><strong>${esc(run.reference)}</strong> ${esc(refScope)} scope</span><span><strong>${esc(candidate)}</strong> ${esc(candScope)} scope</span>`;
   const values = ['text', 'layout', 'pagination', 'assets', 'visual'].map(name => ({ name, value: run.cases.reduce((sum, item) => sum + item.comparisons[candidate].categories[name], 0) / run.cases.length }));
   $('errors').innerHTML = values.map(item => bar(item.name, item.value, 100, 'error', pct)).join('');

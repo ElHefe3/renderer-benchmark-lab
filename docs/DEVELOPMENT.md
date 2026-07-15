@@ -24,12 +24,13 @@ python -m renderer_benchmark_lab.cli --config benchmark.smoke.toml serve
 
 Open `http://127.0.0.1:8000/`. Stop the server with `Ctrl+C` before moving or deleting the repository on Windows, because the server holds its working directory open.
 
-## Real wkhtmltopdf/Fulgur Run on This Machine
+## Real Chromium/Fulgur Run on This Machine
 
-The current wkhtmltopdf installation used by the prototype is:
+Install the pinned Chromium revision and select the candidate id:
 
 ```powershell
-$env:WKHTMLTOPDF_BIN = "C:\Users\kobus\Documents\projects\document-templating-system\tools\wkhtmltox\bin\wkhtmltopdf.exe"
+python -m playwright install chromium
+$env:CANDIDATE_ID = "fulgur"
 ```
 
 Build and configure Fulgur:
@@ -39,10 +40,9 @@ cargo build --release --manifest-path adapters\fulgur\Cargo.toml
 $env:FULGUR_ADAPTER_BIN = "$PWD\adapters\fulgur\target\release\renderer-bench-fulgur.exe"
 ```
 
-Never use literal documentation placeholders such as `C:\path\to\wkhtmltopdf.exe`. Verify both paths first:
+Verify the candidate adapter path before running:
 
 ```powershell
-Test-Path $env:WKHTMLTOPDF_BIN
 Test-Path $env:FULGUR_ADAPTER_BIN
 ```
 
@@ -85,7 +85,7 @@ python -m renderer_benchmark_lab.cli --config benchmark.toml report
 
 ## CI and Pre-commit
 
-`.pre-commit-config.yaml` runs the mock smoke suite. The GitHub workflow installs wkhtmltopdf, builds the Rust Fulgur adapter, executes the full profile, enforces budgets, writes the Markdown job summary, and uploads the static site. Pages deployment occurs only when manually requested with `publish_pages=true`.
+`.pre-commit-config.yaml` runs the mock smoke suite. The reusable GitHub workflow installs pinned Chromium, builds a supplied protocol adapter, executes the CI profile, writes the Markdown job summary and annotations, and uploads the static report for seven days. It does not deploy Pages.
 
 Do not weaken budgets to make CI green without evidence. Determine whether the failure is performance variance, a reference change, fixture instability, or a real renderer regression.
 
@@ -114,4 +114,3 @@ Stop `renderer-bench serve` or any `python -m http.server` process using the dir
 ### Full run is slow
 
 The full profile uses 10 measured samples at 144 DPI across six cases. Use the mock smoke profile during iteration; do not publish smoke timings as renderer performance evidence.
-

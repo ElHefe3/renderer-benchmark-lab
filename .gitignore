@@ -6,3 +6,5 @@ dist/
 .bench/
 .pytest-*/
 target/
+worktrees/
+agent-logs/

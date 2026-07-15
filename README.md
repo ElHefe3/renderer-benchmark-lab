@@ -20,14 +20,15 @@ renderer-bench --config benchmark.smoke.toml serve
 
 Open `http://127.0.0.1:8000/`. The generated `dist/dashboard/` directory is self-contained and can be uploaded to any static host. `dist/dashboard/summary.md` is suitable for GitHub or CI job summaries.
 
-## Real wkhtmltopdf and Fulgur comparison
+## Chromium and Fulgur comparison
 
-Build the bundled warm-engine Fulgur adapter and identify wkhtmltopdf:
+Install the pinned Chromium browser and build the bundled warm-engine Fulgur adapter:
 
 ```powershell
 cargo build --release --manifest-path adapters/fulgur/Cargo.toml
 $env:FULGUR_ADAPTER_BIN = "$PWD\adapters\fulgur\target\release\renderer-bench-fulgur.exe"
-$env:WKHTMLTOPDF_BIN = "C:\path\to\wkhtmltopdf.exe" # replace this placeholder and verify it with Test-Path
+python -m playwright install chromium
+$env:CANDIDATE_ID = "fulgur"
 renderer-bench validate --require-commands
 renderer-bench run --profile full
 ```
@@ -53,5 +54,5 @@ The baseline and runs live under ignored `.bench/`. CI uploads the dashboard and
 ## Automation
 
 - `pre-commit run renderer-benchmark-smoke` runs deterministic tiny, small, and invoice mock-renderer cases.
-- GitHub Actions installs wkhtmltopdf, builds the Fulgur adapter, runs the full profile, enforces budgets, and uploads the dashboard.
+- The reusable GitHub workflow installs pinned Chromium, builds a supplied candidate adapter, runs the CI profile, and always uploads the complete visual report.
 - Other CI systems need the same four commands: install, build adapters, `renderer-bench validate`, and `renderer-bench run`.

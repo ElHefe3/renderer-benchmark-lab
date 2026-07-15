@@ -56,7 +56,8 @@ def load(path: Path) -> Config:
     raw = tomllib.loads(path.read_text(encoding="utf-8"))
     root = path.parent
     renderer_values = {}
-    for rid, value in raw.get("renderers", {}).items():
+    for raw_id, value in raw.get("renderers", {}).items():
+        rid = _expand(raw_id)
         command = value.get("command", [])
         if isinstance(command, str):
             command = shlex.split(command, posix=os.name != "nt")
@@ -86,7 +87,8 @@ def load(path: Path) -> Config:
     if not output_root.is_absolute():
         output_root = root / output_root
     return Config(
-        path, comparison.get("reference", ""), tuple(comparison.get("candidates", [])),
+        path, _expand(comparison.get("reference", "")),
+        tuple(_expand(item) for item in comparison.get("candidates", [])),
         renderer_values, case_values, profiles,
         raw.get("scoring", {}).get("weights", {name: 1 for name in ("text", "layout", "pagination", "assets", "visual")}),
         {key: float(value) for key, value in raw.get("budgets", {}).items()},
@@ -130,4 +132,3 @@ def _command_exists(command: str) -> bool:
     from shutil import which
     value = Path(command)
     return value.is_file() if value.is_absolute() or value.parent != Path(".") else which(command) is not None
-

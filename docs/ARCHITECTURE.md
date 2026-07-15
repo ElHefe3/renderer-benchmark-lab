@@ -7,7 +7,7 @@ Renderer Benchmark Lab measures whether a candidate PDF renderer is moving towar
 1. How long did each renderer take under its declared timing scope?
 2. How different is each candidate PDF from the selected reference PDF for the same materialized HTML and local assets?
 
-wkhtmltopdf is the initial reference and Fulgur is the initial candidate. Neither identity is embedded in the runner, scoring, run schema, or dashboard.
+Chromium print-to-PDF is the bundled default reference and Fulgur is the initial candidate. Neither identity is embedded in the runner, scoring, run schema, or dashboard; wkhtmltopdf remains an optional adapter.
 
 ## Data Flow
 
@@ -94,4 +94,3 @@ Schema 1 layout:
 - New CI system: reproduce install, adapter build, validation, run, and artifact-upload commands.
 
 Avoid adding renderer-specific switches to the CLI or top-level run schema. If a renderer needs special settings, place them in adapter configuration or a future explicit protocol extension.
-

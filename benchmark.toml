@@ -1,13 +1,17 @@
 [comparison]
-reference = "wkhtmltopdf"
-candidates = ["fulgur"]
+reference = "chromium"
+candidates = ["${CANDIDATE_ID}"]
+
+[renderers.chromium]
+command = ["python", "-m", "renderer_benchmark_lab.chromium_adapter"]
+timing_scope = "adapter-defined"
 
 [renderers.wkhtmltopdf]
 command = ["python", "-m", "renderer_benchmark_lab.wkhtml_adapter"]
 timing_scope = "process"
 environment = { WKHTMLTOPDF_BIN = "${WKHTMLTOPDF_BIN}" }
 
-[renderers.fulgur]
+[renderers."${CANDIDATE_ID}"]
 command = ["${FULGUR_ADAPTER_BIN}"]
 timing_scope = "warm-engine"
 
@@ -57,6 +61,12 @@ warmups = 0
 iterations = 1
 dpi = 72
 
+[profiles.ci]
+cases = ["tiny", "small", "invoice"]
+warmups = 0
+iterations = 1
+dpi = 96
+
 [profiles.full]
 cases = ["tiny", "small", "invoice", "newsletter", "contract", "catalogue"]
 warmups = 2
@@ -72,9 +82,9 @@ visual = 1
 
 [budgets]
 max_error_percent = 35
+max_visual_error_percent = 35
 max_critical_failures = 0
 max_quality_regression = 2
-max_speed_regression_percent = 15
 
 [output]
 root = ".bench"

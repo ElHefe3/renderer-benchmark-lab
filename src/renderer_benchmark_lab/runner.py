@@ -23,18 +23,35 @@ def run(config: Config, profile_name: str) -> tuple[Path, dict]:
     root.mkdir(parents=True)
     selected = profile.cases or tuple(config.cases)
     results = []
+    run_errors = []
     for case_id in selected:
         case = config.cases[case_id]
         case_root = root / "cases" / case_id
-        responses, rasters = {}, {}
+        responses, rasters, renderer_errors = {}, {}, {}
         for renderer_id in (config.reference, *config.candidates):
             render_root = case_root / renderer_id
             render_root.mkdir(parents=True)
             pdf = render_root / "output.pdf"
-            responses[renderer_id] = invoke(config.renderers[renderer_id], request(case.html, pdf, profile.warmups, profile.iterations))
-            rasters[renderer_id] = rasterize(pdf, profile.dpi, render_root)
+            try:
+                responses[renderer_id] = invoke(
+                    config.renderers[renderer_id], request(case.html, pdf, profile.warmups, profile.iterations)
+                )
+                rasters[renderer_id] = rasterize(pdf, profile.dpi, render_root)
+            except Exception as error:
+                message = f"{renderer_id}: {error}"
+                renderer_errors[renderer_id] = message
+                run_errors.append(f"{case_id}: {message}")
+                responses[renderer_id] = {
+                    "renderer": renderer_id, "version": "unknown",
+                    "timing_scope": config.renderers[renderer_id].timing_scope,
+                    "samples_ms": [], "output_pdf": str(pdf), "error": str(error),
+                }
         comparisons = {}
         for candidate_id in config.candidates:
+            if config.reference not in rasters or candidate_id not in rasters:
+                failures = [renderer_errors[key] for key in (config.reference, candidate_id) if key in renderer_errors]
+                comparisons[candidate_id] = _failed_comparison(failures)
+                continue
             diff = case_root / f"diff-{candidate_id}"
             diff.mkdir()
             metric = compare(rasters[config.reference], rasters[candidate_id], diff, case.required_text)
@@ -55,13 +72,15 @@ def run(config: Config, profile_name: str) -> tuple[Path, dict]:
         results.append({"id": case_id, "tags": case.tags, "complexity": complexity(case.html),
                         "renderers": responses, "comparisons": comparisons})
     primary = config.candidates[0]
+    completed = [item for item in results if item["comparisons"].get(primary)]
     aggregate = {
         "case_count": len(results),
-        "quality_score": statistics.fmean(item["comparisons"][primary]["quality_score"] for item in results),
-        "overall_error_percent": statistics.fmean(item["comparisons"][primary]["overall_error_percent"] for item in results),
+        "quality_score": _mean(item["comparisons"][primary]["quality_score"] for item in completed),
+        "overall_error_percent": _mean(item["comparisons"][primary]["overall_error_percent"] for item in completed),
+        "visual_error_percent": _mean(item["comparisons"][primary]["categories"]["visual"] for item in completed),
         "critical_failure_count": sum(len(item["comparisons"][primary]["critical_failures"]) for item in results),
-        "reference_median_ms": statistics.fmean(statistics.median(item["renderers"][config.reference]["samples_ms"]) for item in results),
-        "candidate_median_ms": statistics.fmean(statistics.median(item["renderers"][primary]["samples_ms"]) for item in results),
+        "reference_median_ms": _timing_mean(results, config.reference),
+        "candidate_median_ms": _timing_mean(results, primary),
     }
     baseline = _baseline(config)
     checks = evaluate(aggregate, config.budgets, baseline.get("aggregates") if baseline else None)
@@ -70,11 +89,35 @@ def run(config: Config, profile_name: str) -> tuple[Path, dict]:
         "status": "failed" if any(not check["passed"] for check in checks) else "passed",
         "environment": {"os": platform.platform(), "python": platform.python_version(), "commit": _git_commit(config.path.parent)},
         "reference": config.reference, "candidates": list(config.candidates), "aggregates": aggregate,
-        "budget_checks": checks, "cases": results,
+        "budget_checks": checks, "cases": results, "errors": run_errors,
     }
     (root / "run.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     _history(config)
     return root, manifest
+
+
+def _failed_comparison(failures: list[str]) -> dict:
+    failures = failures or ["comparison could not be completed"]
+    return {
+        "categories": {name: 100.0 for name in ("text", "layout", "pagination", "assets", "visual")},
+        "required_text_missing": [], "ssim": 0.0, "pixel_error": 1.0,
+        "overall_error_percent": 100.0, "quality_score": 0.0,
+        "critical_failures": failures, "reference_pages": 0, "candidate_pages": 0,
+    }
+
+
+def _mean(values) -> float:
+    items = list(values)
+    return statistics.fmean(items) if items else 0.0
+
+
+def _timing_mean(results: list[dict], renderer_id: str) -> float:
+    medians = []
+    for item in results:
+        samples = item["renderers"].get(renderer_id, {}).get("samples_ms", [])
+        if samples:
+            medians.append(statistics.median(samples))
+    return _mean(medians)
 
 
 def approve(config: Config, run_id: str) -> Path:

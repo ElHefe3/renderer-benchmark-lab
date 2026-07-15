@@ -1,49 +1,216 @@
 name: Renderer benchmark
+
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
+    inputs:
+      candidate-repository:
+        required: true
+        type: string
+      candidate-ref:
+        required: true
+        type: string
+      candidate-id:
+        required: true
+        type: string
+      candidate-build-command:
+        required: true
+        type: string
+      candidate-adapter-path:
+        required: true
+        type: string
+      profile:
+        type: string
+        default: ci
+      artifact-retention-days:
+        type: number
+        default: 7
+      fail-on-visual-regression:
+        type: boolean
+        default: true
+    outputs:
+      status:
+        value: ${{ jobs.benchmark.outputs.status }}
+      run-id:
+        value: ${{ jobs.benchmark.outputs.run_id }}
+      quality-score:
+        value: ${{ jobs.benchmark.outputs.quality_score }}
+      visual-error-percent:
+        value: ${{ jobs.benchmark.outputs.visual_error_percent }}
+      critical-failure-count:
+        value: ${{ jobs.benchmark.outputs.critical_failure_count }}
+      failed-case-count:
+        value: ${{ jobs.benchmark.outputs.failed_case_count }}
+      artifact-url:
+        value: ${{ jobs.benchmark.outputs.artifact_url }}
   workflow_dispatch:
     inputs:
-      publish_pages:
-        description: Publish this dashboard to GitHub Pages
+      candidate-repository:
+        required: true
+        type: string
+      candidate-ref:
+        required: true
+        type: string
+      candidate-id:
+        required: true
+        type: string
+      candidate-build-command:
+        required: true
+        type: string
+      candidate-adapter-path:
+        required: true
+        type: string
+      profile:
+        type: string
+        default: ci
+      artifact-retention-days:
+        type: number
+        default: 7
+      fail-on-visual-regression:
         type: boolean
-        default: false
+        default: true
+
 permissions:
   contents: read
-  pages: write
-  id-token: write
+
+concurrency:
+  group: renderer-benchmark-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      status: ${{ steps.collect.outputs.status }}
+      run_id: ${{ steps.collect.outputs.run_id }}
+      quality_score: ${{ steps.collect.outputs.quality_score }}
+      visual_error_percent: ${{ steps.collect.outputs.visual_error_percent }}
+      critical_failure_count: ${{ steps.collect.outputs.critical_failure_count }}
+      failed_case_count: ${{ steps.collect.outputs.failed_case_count }}
+      artifact_url: ${{ steps.upload.outputs.artifact-url }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.11", cache: pip }
-      - uses: dtolnay/rust-toolchain@stable
-      - run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf
-      - run: python -m pip install -e .[dev]
-      - run: cargo build --release --manifest-path adapters/fulgur/Cargo.toml
-      - run: renderer-bench validate --require-commands
+      - name: Resolve benchmark workflow source
+        id: source
+        shell: bash
         env:
-          WKHTMLTOPDF_BIN: /usr/bin/wkhtmltopdf
-          FULGUR_ADAPTER_BIN: adapters/fulgur/target/release/renderer-bench-fulgur
-      - run: renderer-bench run --profile full
-        env:
-          WKHTMLTOPDF_BIN: /usr/bin/wkhtmltopdf
-          FULGUR_ADAPTER_BIN: adapters/fulgur/target/release/renderer-bench-fulgur
-      - run: cat dist/dashboard/summary.md >> "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
-        with: { name: renderer-benchmark-dashboard, path: "dist/dashboard" }
-      - uses: actions/upload-pages-artifact@v3
-        if: github.event_name == 'workflow_dispatch' && inputs.publish_pages
-        with: { path: "dist/dashboard" }
-  deploy:
-    if: github.event_name == 'workflow_dispatch' && inputs.publish_pages
-    needs: benchmark
-    runs-on: ubuntu-latest
-    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+          WORKFLOW_REF: ${{ github.workflow_ref }}
+        run: |
+          value="${WORKFLOW_REF%@*}"
+          echo "repository=${value%%/.github/workflows/*}" >> "$GITHUB_OUTPUT"
+          echo "ref=${WORKFLOW_REF##*@}" >> "$GITHUB_OUTPUT"
 
+      - name: Check out benchmark
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.source.outputs.repository }}
+          ref: ${{ steps.source.outputs.ref }}
+          path: benchmark
+
+      - name: Check out candidate
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.candidate-repository }}
+          ref: ${{ inputs.candidate-ref }}
+          path: candidate
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: benchmark/pyproject.toml
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-1.49.0
+
+      - name: Install benchmark and Chromium
+        working-directory: benchmark
+        run: |
+          python -m pip install -e .
+          python -m playwright install --with-deps chromium
+
+      - name: Build candidate adapter
+        working-directory: candidate
+        shell: bash
+        env:
+          CANDIDATE_BUILD_COMMAND: ${{ inputs.candidate-build-command }}
+        run: bash -euo pipefail -c "$CANDIDATE_BUILD_COMMAND"
+
+      - name: Resolve candidate adapter
+        id: adapter
+        shell: bash
+        run: |
+          value="$GITHUB_WORKSPACE/candidate/${{ inputs.candidate-adapter-path }}"
+          test -f "$value"
+          chmod +x "$value"
+          echo "path=$value" >> "$GITHUB_OUTPUT"
+
+      - name: Validate configuration
+        working-directory: benchmark
+        env:
+          CANDIDATE_ID: ${{ inputs.candidate-id }}
+          FULGUR_ADAPTER_BIN: ${{ steps.adapter.outputs.path }}
+        run: renderer-bench --config benchmark.toml validate --require-commands
+
+      - name: Run benchmark
+        id: run
+        continue-on-error: true
+        working-directory: benchmark
+        env:
+          CANDIDATE_ID: ${{ inputs.candidate-id }}
+          FULGUR_ADAPTER_BIN: ${{ steps.adapter.outputs.path }}
+        run: renderer-bench --config benchmark.toml run --profile "${{ inputs.profile }}"
+
+      - name: Collect outputs and annotations
+        id: collect
+        if: always()
+        working-directory: benchmark
+        run: python -m renderer_benchmark_lab.ci_export dist/dashboard/ci-result.json --annotations dist/dashboard/annotations.json
+
+      - name: Add benchmark summary
+        if: always()
+        shell: bash
+        run: |
+          if test -f benchmark/dist/dashboard/summary.md; then
+            cat benchmark/dist/dashboard/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Renderer benchmark" >> "$GITHUB_STEP_SUMMARY"
+            echo "No report was produced." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload complete visual report
+        id: upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renderer-benchmark-${{ inputs.candidate-id }}
+          path: benchmark/dist/dashboard
+          retention-days: ${{ inputs.artifact-retention-days }}
+          compression-level: 0
+          if-no-files-found: warn
+
+      - name: Add artifact link
+        if: always()
+        shell: bash
+        env:
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          if test -n "$ARTIFACT_URL"; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "[Download the complete visual report]($ARTIFACT_URL)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Apply visual gate
+        if: always() && inputs.fail-on-visual-regression
+        shell: bash
+        env:
+          STATUS: ${{ steps.collect.outputs.status }}
+        run: |
+          if test "$STATUS" != passed; then
+            echo "::error title=Renderer benchmark failed::Visual correctness checks failed; inspect the uploaded report."
+            exit 1
+          fi
