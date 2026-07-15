@@ -3,14 +3,6 @@ name: Renderer benchmark
 on:
   workflow_call:
     inputs:
-      benchmark-repository:
-        description: Repository containing the benchmark implementation
-        type: string
-        default: ElHefe3/renderer-benchmark-lab
-      benchmark-ref:
-        description: Exact benchmark tag or commit to check out
-        required: true
-        type: string
       candidate-repository:
         required: true
         type: string
@@ -52,14 +44,6 @@ on:
         value: ${{ jobs.benchmark.outputs.artifact_url }}
   workflow_dispatch:
     inputs:
-      benchmark-repository:
-        description: Repository containing the benchmark implementation
-        type: string
-        default: ElHefe3/renderer-benchmark-lab
-      benchmark-ref:
-        description: Exact benchmark tag or commit to check out
-        required: true
-        type: string
       candidate-repository:
         required: true
         type: string
@@ -108,8 +92,8 @@ jobs:
       - name: Check out benchmark
         uses: actions/checkout@v4
         with:
-          repository: ${{ inputs.benchmark-repository }}
-          ref: ${{ inputs.benchmark-ref }}
+          repository: ElHefe3/renderer-benchmark-lab
+          ref: v0.1.0
           path: benchmark
 
       - name: Check out candidate
