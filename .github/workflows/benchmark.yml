@@ -3,6 +3,14 @@ name: Renderer benchmark
 on:
   workflow_call:
     inputs:
+      benchmark-repository:
+        description: Repository containing the benchmark implementation
+        type: string
+        default: ElHefe3/renderer-benchmark-lab
+      benchmark-ref:
+        description: Exact benchmark tag or commit to check out
+        required: true
+        type: string
       candidate-repository:
         required: true
         type: string
@@ -44,6 +52,14 @@ on:
         value: ${{ jobs.benchmark.outputs.artifact_url }}
   workflow_dispatch:
     inputs:
+      benchmark-repository:
+        description: Repository containing the benchmark implementation
+        type: string
+        default: ElHefe3/renderer-benchmark-lab
+      benchmark-ref:
+        description: Exact benchmark tag or commit to check out
+        required: true
+        type: string
       candidate-repository:
         required: true
         type: string
@@ -89,21 +105,11 @@ jobs:
       failed_case_count: ${{ steps.collect.outputs.failed_case_count }}
       artifact_url: ${{ steps.upload.outputs.artifact-url }}
     steps:
-      - name: Resolve benchmark workflow source
-        id: source
-        shell: bash
-        env:
-          WORKFLOW_REF: ${{ github.workflow_ref }}
-        run: |
-          value="${WORKFLOW_REF%@*}"
-          echo "repository=${value%%/.github/workflows/*}" >> "$GITHUB_OUTPUT"
-          echo "ref=${WORKFLOW_REF##*@}" >> "$GITHUB_OUTPUT"
-
       - name: Check out benchmark
         uses: actions/checkout@v4
         with:
-          repository: ${{ steps.source.outputs.repository }}
-          ref: ${{ steps.source.outputs.ref }}
+          repository: ${{ inputs.benchmark-repository }}
+          ref: ${{ inputs.benchmark-ref }}
           path: benchmark
 
       - name: Check out candidate
