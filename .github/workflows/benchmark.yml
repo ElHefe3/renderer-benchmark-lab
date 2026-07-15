@@ -1,0 +1,49 @@
+name: Renderer benchmark
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      publish_pages:
+        description: Publish this dashboard to GitHub Pages
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11", cache: pip }
+      - uses: dtolnay/rust-toolchain@stable
+      - run: sudo apt-get update && sudo apt-get install -y wkhtmltopdf
+      - run: python -m pip install -e .[dev]
+      - run: cargo build --release --manifest-path adapters/fulgur/Cargo.toml
+      - run: renderer-bench validate --require-commands
+        env:
+          WKHTMLTOPDF_BIN: /usr/bin/wkhtmltopdf
+          FULGUR_ADAPTER_BIN: adapters/fulgur/target/release/renderer-bench-fulgur
+      - run: renderer-bench run --profile full
+        env:
+          WKHTMLTOPDF_BIN: /usr/bin/wkhtmltopdf
+          FULGUR_ADAPTER_BIN: adapters/fulgur/target/release/renderer-bench-fulgur
+      - run: cat dist/dashboard/summary.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with: { name: renderer-benchmark-dashboard, path: "dist/dashboard" }
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_pages
+        with: { path: "dist/dashboard" }
+  deploy:
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_pages
+    needs: benchmark
+    runs-on: ubuntu-latest
+    environment: { name: github-pages, url: "${{ steps.deployment.outputs.page_url }}" }
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+

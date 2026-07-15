@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: renderer-benchmark-smoke
+        name: renderer benchmark smoke
+        entry: python -m renderer_benchmark_lab.cli --config benchmark.smoke.toml run --profile smoke
+        language: python
+        additional_dependencies: [".[dev]"]
+        pass_filenames: false
+        stages: [pre-commit]

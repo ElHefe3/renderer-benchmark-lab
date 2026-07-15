@@ -1,0 +1,53 @@
+[comparison]
+reference = "wkhtmltopdf"
+candidates = ["fulgur"]
+
+[renderers.wkhtmltopdf]
+command = ["python", "-m", "renderer_benchmark_lab.wkhtml_adapter"]
+timing_scope = "process"
+environment = { WKHTMLTOPDF_BIN = "${WKHTMLTOPDF_BIN}" }
+
+[renderers.fulgur]
+command = ["${FULGUR_ADAPTER_BIN}"]
+timing_scope = "warm-engine"
+
+[cases.tiny]
+html = "fixtures/tiny/document.html"
+tags = ["smoke", "text", "assets"]
+required_text = ["Renderer benchmark", "Required closing sentence"]
+min_pages = 1
+max_pages = 2
+
+[cases.small]
+html = "fixtures/small/document.html"
+tags = ["smoke", "grid", "table", "pagination"]
+required_text = ["Small business report", "Final audit marker"]
+
+[profiles.smoke]
+cases = ["tiny", "small"]
+warmups = 0
+iterations = 1
+dpi = 72
+
+[profiles.full]
+cases = ["tiny", "small"]
+warmups = 2
+iterations = 10
+dpi = 144
+
+[scoring.weights]
+text = 1
+layout = 1
+pagination = 1
+assets = 1
+visual = 1
+
+[budgets]
+max_error_percent = 35
+max_critical_failures = 0
+max_quality_regression = 2
+max_speed_regression_percent = 15
+
+[output]
+root = ".bench"
+history_limit = 20

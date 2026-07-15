@@ -1,0 +1,43 @@
+[comparison]
+reference = "reference"
+candidates = ["candidate"]
+
+[renderers.reference]
+command = ["python", "-m", "renderer_benchmark_lab.mock_adapter"]
+timing_scope = "process"
+environment = { MOCK_VARIANT = "reference" }
+
+[renderers.candidate]
+command = ["python", "-m", "renderer_benchmark_lab.mock_adapter"]
+timing_scope = "process"
+environment = { MOCK_VARIANT = "candidate" }
+
+[cases.tiny]
+html = "fixtures/tiny/document.html"
+tags = ["smoke"]
+required_text = ["Required closing sentence"]
+
+[cases.small]
+html = "fixtures/small/document.html"
+tags = ["smoke"]
+
+[profiles.smoke]
+cases = ["tiny", "small"]
+warmups = 0
+iterations = 1
+dpi = 72
+
+[scoring.weights]
+text = 1
+layout = 1
+pagination = 1
+assets = 1
+visual = 1
+
+[budgets]
+max_error_percent = 100
+max_critical_failures = 5
+
+[output]
+root = ".bench/smoke"
+history_limit = 3

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "renderer-benchmark-lab"
+version = "0.1.0"
+description = "Renderer-neutral PDF performance and fidelity benchmarking"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "numpy>=1.26",
+  "Pillow>=10",
+  "PyMuPDF>=1.24",
+  "scikit-image>=0.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.5", "pre-commit>=3.7"]
+
+[project.scripts]
+renderer-bench = "renderer_benchmark_lab.cli:main"
+renderer-bench-mock = "renderer_benchmark_lab.mock_adapter:main"
+renderer-bench-wkhtml = "renderer_benchmark_lab.wkhtml_adapter:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/renderer_benchmark_lab"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 110
+

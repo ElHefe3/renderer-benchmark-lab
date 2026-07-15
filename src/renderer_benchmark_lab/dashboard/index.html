@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Renderer Benchmark Lab</title><link rel="stylesheet" href="style.css"></head>
+<body><header><div><span class="eyebrow">DEVELOPMENT GOAL</span><h1>Renderer Benchmark Lab</h1><p>Absolute speed and reference-relative PDF fidelity.</p></div><div class="controls"><label>Run<select id="run"></select></label><label>Candidate<select id="candidate"></select></label></div></header>
+<main><div id="empty" hidden>No benchmark runs are available.</div><section id="content" hidden>
+<div id="status" class="status"></div><div id="stats" class="stats"></div>
+<div class="columns"><section><h2>Rendering time</h2><p>Mean median milliseconds; shorter is better.</p><div id="speed"></div></section>
+<section><h2>Quality errors</h2><p>Weighted categories; lower is better.</p><div id="errors"></div></section></div>
+<section><h2>Cases</h2><div class="table"><table><thead><tr><th>Case</th><th>Complexity</th><th>Reference</th><th>Candidate</th><th>Pages</th><th>Quality</th></tr></thead><tbody id="cases"></tbody></table></div></section>
+<section id="detail"><div class="detail-head"><div><h2 id="case-title"></h2><p id="case-meta"></p></div><label>Page<select id="page"></select></label></div><div id="categories" class="categories"></div><div id="pages" class="pages"></div></section>
+</section></main><script src="data/index.js"></script><script src="app.js"></script></body></html>
