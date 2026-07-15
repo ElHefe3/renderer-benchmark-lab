@@ -23,14 +23,42 @@ html = "fixtures/small/document.html"
 tags = ["smoke", "grid", "table", "pagination"]
 required_text = ["Small business report", "Final audit marker"]
 
+[cases.invoice]
+html = "fixtures/invoice/document.html"
+tags = ["smoke", "invoice", "table", "totals"]
+required_text = ["TAX INVOICE", "Amount due", "Payment reference: INV-2026-0715"]
+min_pages = 1
+max_pages = 1
+
+[cases.newsletter]
+html = "fixtures/newsletter/document.html"
+tags = ["columns", "floats", "typography", "assets"]
+required_text = ["The Field Notes", "Newsletter closing marker"]
+min_pages = 2
+max_pages = 5
+
+[cases.contract]
+html = "fixtures/contract/document.html"
+tags = ["long-form", "legal", "numbering", "page-breaks"]
+required_text = ["SERVICE AGREEMENT", "Clause 18 — Entire agreement", "Signature page"]
+min_pages = 3
+max_pages = 12
+
+[cases.catalogue]
+html = "fixtures/catalogue/document.html"
+tags = ["catalogue", "grid", "images", "badges"]
+required_text = ["Winter Equipment Catalogue", "Catalogue closing marker"]
+min_pages = 2
+max_pages = 8
+
 [profiles.smoke]
-cases = ["tiny", "small"]
+cases = ["tiny", "small", "invoice"]
 warmups = 0
 iterations = 1
 dpi = 72
 
 [profiles.full]
-cases = ["tiny", "small"]
+cases = ["tiny", "small", "invoice", "newsletter", "contract", "catalogue"]
 warmups = 2
 iterations = 10
 dpi = 144

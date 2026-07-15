@@ -2,6 +2,13 @@
 
 A renderer-neutral framework for tracking PDF rendering speed, fidelity, pagination, text, layout, and assets against an explicit development goal.
 
+## Documentation
+
+- [Architecture and data flow](docs/ARCHITECTURE.md)
+- [Development, fixtures, CI, and troubleshooting](docs/DEVELOPMENT.md)
+- [Renderer adapter protocol](docs/ADAPTER_PROTOCOL.md)
+- [Instructions for coding agents](AGENTS.md)
+
 ## Quick start
 
 ```powershell
@@ -20,7 +27,7 @@ Build the bundled warm-engine Fulgur adapter and identify wkhtmltopdf:
 ```powershell
 cargo build --release --manifest-path adapters/fulgur/Cargo.toml
 $env:FULGUR_ADAPTER_BIN = "$PWD\adapters\fulgur\target\release\renderer-bench-fulgur.exe"
-$env:WKHTMLTOPDF_BIN = "C:\path\to\wkhtmltopdf.exe"
+$env:WKHTMLTOPDF_BIN = "C:\path\to\wkhtmltopdf.exe" # replace this placeholder and verify it with Test-Path
 renderer-bench validate --require-commands
 renderer-bench run --profile full
 ```
@@ -45,7 +52,6 @@ The baseline and runs live under ignored `.bench/`. CI uploads the dashboard and
 
 ## Automation
 
-- `pre-commit run renderer-benchmark-smoke` runs deterministic tiny and small mock-renderer cases.
+- `pre-commit run renderer-benchmark-smoke` runs deterministic tiny, small, and invoice mock-renderer cases.
 - GitHub Actions installs wkhtmltopdf, builds the Fulgur adapter, runs the full profile, enforces budgets, and uploads the dashboard.
 - Other CI systems need the same four commands: install, build adapters, `renderer-bench validate`, and `renderer-bench run`.
-

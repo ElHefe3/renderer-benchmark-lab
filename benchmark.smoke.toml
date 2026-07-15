@@ -21,8 +21,13 @@ required_text = ["Required closing sentence"]
 html = "fixtures/small/document.html"
 tags = ["smoke"]
 
+[cases.invoice]
+html = "fixtures/invoice/document.html"
+tags = ["smoke", "invoice"]
+required_text = ["TAX INVOICE", "Payment reference: INV-2026-0715"]
+
 [profiles.smoke]
-cases = ["tiny", "small"]
+cases = ["tiny", "small", "invoice"]
 warmups = 0
 iterations = 1
 dpi = 72
